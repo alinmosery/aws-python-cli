@@ -2,6 +2,11 @@
 __pycache__/
 *.py[codz]
 *$py.class
+.venv/
+__pycache__/
+.idea/
+*.pyc
+.DS_Store
 
 # C extensions
 *.so
