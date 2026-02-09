@@ -36,7 +36,7 @@
 
 1.  **שכפול המאגר (Clone):**
     ```bash
-    git clone [https://github.com/alinmosery/aws-python-cli.git](https://github.com/alinmosery/aws-python-cli.git)
+    git clone https://github.com/alinmosery/aws-python-cli.git
     cd aws-python-cli
     ```
 
