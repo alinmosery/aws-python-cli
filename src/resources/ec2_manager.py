@@ -1,41 +1,44 @@
 import boto3
 from botocore.exceptions import ClientError
-from src.utils.helper import get_standard_tags
+# אנחנו מייבאים גם את הפונקציה וגם את המשתנה הקבוע
+from src.utils.helper import get_standard_tags, PROJECT_TAG
 
-# --- הגדרות קבועות (חלק מהדרישות) ---
-INSTANCE_TYPE = 't2.micro'  # סוג השרת (הכי זול)
-MAX_INSTANCES = 2  # המגבלה הקשיחה: מקסימום 2 שרתים
-
+# הגדרות קבועות
+INSTANCE_TYPE = 't2.micro'
+MAX_INSTANCES = 2
 
 def get_latest_ami(ec2_client):
-    """
-    מוצא את ה-ID של מערכת ההפעלה הכי חדשה (Amazon Linux 2023).
-    זה עדיף מלכתוב ID קבוע, כי IDs משתנים בין Regions.
-    """
+   
+    # מוצא את האיידי של מערכת ההפעלה הכי חדשה (Amazon Linux 2023).
     try:
         response = ec2_client.describe_images(
             Owners=['amazon'],
             Filters=[
-                {'Name': 'name', 'Values': ['al2023-ami-2023.*-x86_64']},  # פילטר ללינוקס של אמזון
-                {'Name': 'state', 'Values': ['available']}
+                {'Name': 'name', 'Values': ['al2023-ami-2023.*-x86_64']},
+                {'Name': 'state', 'Values': ['available']},
+                {'Name': 'architecture', 'Values': ['x86_64']}
             ]
         )
-        # מיון לפי תאריך יצירה, ולקיחת הראשון (הכי חדש)
         images = sorted(response['Images'], key=lambda x: x['CreationDate'], reverse=True)
+        if not images:
+            raise Exception("No AMIs found.")
         return images[0]['ImageId']
-    except IndexError:
-        raise Exception("Could not find a valid AMI image.")
+    except Exception as e:
+        raise Exception(f"Error finding AMI: {str(e)}")
 
 
 def check_limit(ec2_client):
-    """
-    ה'שוטר': בודק כמה שרתים פעילים כבר יש לפרויקט הזה.
-    """
-    # אנחנו מחפשים רק שרתים שיש להם את הטאג שלנו
+   
+   # ה'שוטר': בודק כמה שרתים פעילים יש תחת התגית שלנו.
+
+    #שליפת הערך מתוך ההלפר
+    project_value = PROJECT_TAG['Value']
+
     response = ec2_client.describe_instances(
         Filters=[
-            {'Name': 'tag:CreatedBy', 'Values': ['Alin-DevOps-CLI']},
-            # סופרים רק שרתים חיים (לא כאלו שנמחקו)
+            # שימוש במשתנה המיובא
+            #כך שאם נרצה לשנות שם פרויקט לא תהיה בעיה וזה יסתנכרן לבד
+            {'Name': 'tag:CreatedBy', 'Values': [project_value]},
             {'Name': 'instance-state-name', 'Values': ['running', 'pending', 'stopped']}
         ]
     )
@@ -44,21 +47,20 @@ def check_limit(ec2_client):
     for reservation in response['Reservations']:
         count += len(reservation['Instances'])
 
-    print(f"DEBUG: Found {count} instances created by this CLI.")
+    print(f"DEBUG: Found {count} instances with tag {project_value}.")
 
     if count >= MAX_INSTANCES:
-        return False, f"Limit reached! You already have {count}/{MAX_INSTANCES} instances."
+        return False, f" Limit reached! You have {count}/{MAX_INSTANCES} instances."
 
     return True, "Limit check passed."
 
 
 def create_instance(name):
-    """
-    הפונקציה הראשית שיוצרת את השרת
-    """
+     # הפונקציה הראשית שיוצרת את השרת
+ 
     ec2_client = boto3.client('ec2')
 
-    # 1. בדיקת השוטר
+    # 1. בדיקה
     allowed, msg = check_limit(ec2_client)
     if not allowed:
         return False, msg
@@ -69,25 +71,23 @@ def create_instance(name):
 
         # 2. הכנת הטאגים
         tags = get_standard_tags()
-        tags.append({'Key': 'Name', 'Value': name})  # הוספת השם לטאגים
+        tags.append({'Key': 'Name', 'Value': name})
 
-        print(f"DEBUG: Launching instance {name} ({INSTANCE_TYPE})...")
+        print(f"DEBUG: Launching instance {name}...")
 
-        # 3. פקודת היצירה (שונה מ-S3, כאן הטאגים נכנסים בתוך המפרט)
+        # 3. יצירת השרת
         ec2_client.run_instances(
             ImageId=ami_id,
             InstanceType=INSTANCE_TYPE,
             MinCount=1,
             MaxCount=1,
             TagSpecifications=[
-                {
-                    'ResourceType': 'instance',
-                    'Tags': tags
-                }
+                {'ResourceType': 'instance', 'Tags': tags},
+                {'ResourceType': 'volume', 'Tags': tags}
             ]
         )
 
-        return True, f"Instance {name} launched successfully!"
+        return True, f"Instance '{name}' launched successfully!"
 
     except ClientError as e:
         return False, f"AWS Error: {e}"
@@ -95,29 +95,39 @@ def create_instance(name):
         return False, f"Error: {e}"
 
 
-# --- פונקציה בונוס: רשימת שרתים (כמו ב-S3) ---
 def list_created_instances():
+   
+   # רשימת השרתים
+   
     ec2_client = boto3.client('ec2')
+    project_value = PROJECT_TAG['Value'] # שימוש באותו משתנה מההלפר
 
-    response = ec2_client.describe_instances(
-        Filters=[
-            {'Name': 'tag:CreatedBy', 'Values': ['Alin-DevOps-CLI']},
-            {'Name': 'instance-state-name', 'Values': ['running', 'pending', 'stopped']}
-        ]
-    )
+    try:
+        response = ec2_client.describe_instances(
+            Filters=[
+                {'Name': 'tag:CreatedBy', 'Values': [project_value]},
+                {'Name': 'instance-state-name', 'Values': ['running', 'pending', 'stopped']}
+            ]
+        )
 
-    instances = []
-    for reservation in response['Reservations']:
-        for instance in reservation['Instances']:
-            instance_id = instance['InstanceId']
+        instances = []
+        for reservation in response['Reservations']:
+            for instance in reservation['Instances']:
+                instance_id = instance['InstanceId']
+                state = instance['State']['Name']
+                public_ip = instance.get('PublicIpAddress', 'No IP')
+                
+                name = "Unknown"
+                if 'Tags' in instance:
+                    for tag in instance['Tags']:
+                        if tag['Key'] == 'Name':
+                            name = tag['Value']
+                            break
 
-            # חיפוש השם מתוך הטאגים
-            name = "Unknown"
-            for tag in instance.get('Tags', []):
-                if tag['Key'] == 'Name':
-                    name = tag['Value']
+                instances.append(f"{name} ({instance_id}) - [{state}] - IP: {public_ip}")
 
-            state = instance['State']['Name']
-            instances.append(f"{name} ({instance_id}) - [{state}]")
+        return instances
 
-    return instances
+    except Exception as e:
+        print(f"Error listing instances: {e}")
+        return []
