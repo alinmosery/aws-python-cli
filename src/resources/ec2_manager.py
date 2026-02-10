@@ -8,8 +8,9 @@ INSTANCE_TYPE = 't2.micro'
 MAX_INSTANCES = 2
 
 def get_latest_ami(ec2_client):
-   
-    # מוצא את האיידי של מערכת ההפעלה הכי חדשה (Amazon Linux 2023).
+  
+   # מוצא את ה-ID של מערכת ההפעלה הכי חדשה (Amazon Linux 2023).
+  
     try:
         response = ec2_client.describe_images(
             Owners=['amazon'],
@@ -28,16 +29,14 @@ def get_latest_ami(ec2_client):
 
 
 def check_limit(ec2_client):
-   
+    
    # ה'שוטר': בודק כמה שרתים פעילים יש תחת התגית שלנו.
-
-    #שליפת הערך מתוך ההלפר
+    
+    # שליפת הערך מתוך ההלפר
     project_value = PROJECT_TAG['Value']
 
     response = ec2_client.describe_instances(
         Filters=[
-            # שימוש במשתנה המיובא
-            #כך שאם נרצה לשנות שם פרויקט לא תהיה בעיה וזה יסתנכרן לבד
             {'Name': 'tag:CreatedBy', 'Values': [project_value]},
             {'Name': 'instance-state-name', 'Values': ['running', 'pending', 'stopped']}
         ]
@@ -56,11 +55,12 @@ def check_limit(ec2_client):
 
 
 def create_instance(name):
-     # הפונקציה הראשית שיוצרת את השרת
- 
+   
+   # הפונקציה הראשית שיוצרת את השרת
+    
     ec2_client = boto3.client('ec2')
 
-    # 1. בדיקה
+    # 1. בדיקת השוטר
     allowed, msg = check_limit(ec2_client)
     if not allowed:
         return False, msg
@@ -94,16 +94,21 @@ def create_instance(name):
     except Exception as e:
         return False, f"Error: {e}"
 
+
 def stop_instance(instance_id):
-    
-    # Stops an EC2 instance only if it has our project tag.
-  
+    """
+    Stops an EC2 instance only if it has our project tag.
+    """
     ec2_client = boto3.client('ec2')
     project_value = PROJECT_TAG['Value']
 
     try:
         # 1. בדיקת בעלות
         response = ec2_client.describe_instances(InstanceIds=[instance_id])
+        # הגנה למקרה שהמזהה לא קיים או שאין טאגים
+        if not response['Reservations']:
+             return False, "Instance not found."
+             
         tags = response['Reservations'][0]['Instances'][0].get('Tags', [])
         
         is_ours = False
@@ -124,15 +129,18 @@ def stop_instance(instance_id):
 
 
 def start_instance(instance_id):
-   
-   #  Starts an EC2 instance only if it has our tag
   
+  #  Starts an EC2 instance only if it has our tag
+    
     ec2_client = boto3.client('ec2')
     project_value = PROJECT_TAG['Value']
 
     try:
         # 1. בדיקת בעלות
         response = ec2_client.describe_instances(InstanceIds=[instance_id])
+        if not response['Reservations']:
+             return False, "Instance not found."
+
         tags = response['Reservations'][0]['Instances'][0].get('Tags', [])
         
         is_ours = False
@@ -150,9 +158,11 @@ def start_instance(instance_id):
 
     except ClientError as e:
         return False, f"AWS Error: {e}"
+
+
 def list_created_instances():
    
-   # רשימת השרתים
+    # רשימת השרתים
    
     ec2_client = boto3.client('ec2')
     project_value = PROJECT_TAG['Value'] # שימוש באותו משתנה מההלפר
