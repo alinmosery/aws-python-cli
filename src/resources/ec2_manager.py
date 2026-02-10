@@ -94,7 +94,62 @@ def create_instance(name):
     except Exception as e:
         return False, f"Error: {e}"
 
+def stop_instance(instance_id):
+    
+    # Stops an EC2 instance only if it has our project tag.
+  
+    ec2_client = boto3.client('ec2')
+    project_value = PROJECT_TAG['Value']
 
+    try:
+        # 1. בדיקת בעלות
+        response = ec2_client.describe_instances(InstanceIds=[instance_id])
+        tags = response['Reservations'][0]['Instances'][0].get('Tags', [])
+        
+        is_ours = False
+        for tag in tags:
+            if tag['Key'] == 'CreatedBy' and tag['Value'] == project_value:
+                is_ours = True
+                break
+        
+        if not is_ours:
+            return False, f" Security Alert: You cannot stop instance {instance_id} because it was not created by this CLI."
+
+        # 2. ביצוע העצירה
+        ec2_client.stop_instances(InstanceIds=[instance_id])
+        return True, f"Stopping instance {instance_id}..."
+
+    except ClientError as e:
+        return False, f"AWS Error: {e}"
+
+
+def start_instance(instance_id):
+   
+   #  Starts an EC2 instance only if it has our tag
+  
+    ec2_client = boto3.client('ec2')
+    project_value = PROJECT_TAG['Value']
+
+    try:
+        # 1. בדיקת בעלות
+        response = ec2_client.describe_instances(InstanceIds=[instance_id])
+        tags = response['Reservations'][0]['Instances'][0].get('Tags', [])
+        
+        is_ours = False
+        for tag in tags:
+            if tag['Key'] == 'CreatedBy' and tag['Value'] == project_value:
+                is_ours = True
+                break
+        
+        if not is_ours:
+            return False, f" Security Alert: You cannot start instance {instance_id} because it was not created by this CLI."
+
+        # 2. ביצוע ההפעלה
+        ec2_client.start_instances(InstanceIds=[instance_id])
+        return True, f"Starting instance {instance_id}..."
+
+    except ClientError as e:
+        return False, f"AWS Error: {e}"
 def list_created_instances():
    
    # רשימת השרתים
