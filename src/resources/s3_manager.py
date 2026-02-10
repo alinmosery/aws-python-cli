@@ -104,3 +104,37 @@ def list_created_buckets():
     except Exception as e:
         print(f"Error listing buckets: {e}")
         return []
+
+import os # צריך להוסיף את זה למעלה באימפורטים
+
+def upload_file_to_bucket(bucket_name, file_path):
+   
+   # Uploads a file to an S3 bucket (only if the bucket is ours).
+    
+    s3_client = boto3.client('s3')
+    project_value = PROJECT_TAG['Value']
+
+    try:
+        # 1. בדיקת בעלות על הבאקט
+        tags_response = s3_client.get_bucket_tagging(Bucket=bucket_name)
+        tag_set = tags_response.get('TagSet', [])
+        
+        is_ours = False
+        for tag in tag_set:
+            if tag['Key'] == 'CreatedBy' and tag['Value'] == project_value:
+                is_ours = True
+                break
+        
+        if not is_ours:
+            return False, f" Permission Denied: Bucket '{bucket_name}' is not managed by this CLI."
+
+        # 2. העלאת הקובץ
+        file_name = os.path.basename(file_path) # לוקח רק את שם הקובץ בלי הנתיב המלא
+        s3_client.upload_file(file_path, bucket_name, file_name)
+        
+        return True, f"File '{file_name}' uploaded successfully to {bucket_name}!"
+
+    except ClientError as e:
+        return False, f"AWS Error: {e}"
+    except FileNotFoundError:
+        return False, "Error: The file you tried to upload does not exist."
