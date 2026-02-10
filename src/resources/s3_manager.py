@@ -1,21 +1,22 @@
 import boto3
+import os  # העברנו את זה למעלה - המקום הנכון
 from botocore.exceptions import ClientError
 from src.utils.helper import get_standard_tags, PROJECT_TAG
 
 
 def create_s3_bucket(bucket_name, is_public=False):
-    # Creates an S3 bucket with specific tags and access settings.
-    # חיבור ל aws
+    
+ #   Creates an S3 bucket with specific tags and access settings.
+    
     s3_client = boto3.client('s3')
 
     try:
-          #  יצירת הבאקט עצמו
-          #בניגוד לאיסי2 באס3 אי אפשר להוסיף טאקים בתוך פקודת היצירה
-        # לכן קודם יוצרים ואז מתייגים.
+        # 1. יצירת הבאקט עצמו
+        # בניגוד ל-EC2, ב-S3 אי אפשר להוסיף טאגים בתוך פקודת היצירה.
         s3_client.create_bucket(Bucket=bucket_name)
         print(f"DEBUG: Bucket '{bucket_name}' created.")
 
-        #  הוספת הטאגים (Post-Creation Tagging)
+        # 2. הוספת הטאגים (Post-Creation Tagging)
         tags = get_standard_tags() # שליפת הטאגים הקבועים מההלפר
         
         s3_client.put_bucket_tagging(
@@ -24,27 +25,23 @@ def create_s3_bucket(bucket_name, is_public=False):
         )
         print(f"DEBUG: Tags added to '{bucket_name}'.")
 
-        #  ניהול אבטחה Security Guardrails
-        # AWS נועלת באקטים באופן ברירת מחדל (Block Public Access).
-        # אנחנו צריכים להחליט אם לפתוח או לנעול חזק יותר.
-        
+        # 3. ניהול אבטחה (Security Guardrails)
         if is_public:
-            # אם המשתמש ביקש ציבורי: חייבים להסיר את המנעולים של AWS.
-            # זה לא הופך את הבאקט לציבורי מייד (צריך גם Policy), אבל זה מאפשר לו להיות ציבורי.
-            print(f"DEBUG:  Setting bucket {bucket_name} to PUBLIC (Removing Blocks)...")
+            # אם המשתמש ביקש ציבורי: מסירים את המנעולים
+            print(f"DEBUG: Setting bucket {bucket_name} to PUBLIC (Removing Blocks)...")
             s3_client.delete_public_access_block(Bucket=bucket_name)
             access_msg = "PUBLIC access enabled (Blocks removed) "
         
         else:
-            # אם המשתמש ביקש פרטי: אנחנו מפעילים את כל 4 המנעולים של AWS.
-            print(f"DEBUG:  Locking bucket {bucket_name}...")
+            # אם המשתמש ביקש פרטי: נועלים הכל
+            print(f"DEBUG: Locking bucket {bucket_name}...")
             s3_client.put_public_access_block(
                 Bucket=bucket_name,
                 PublicAccessBlockConfiguration={
-                    'BlockPublicAcls': True,      # חוסם רשימות גישה ציבוריות
-                    'IgnorePublicAcls': True,     # מתעלם אם מישהו ניסה להגדיר כזה
-                    'BlockPublicPolicy': True,    # חוסם מדיניות (Policy) ציבורית
-                    'RestrictPublicBuckets': True # נועל את הבאקט לגישה חיצונית
+                    'BlockPublicAcls': True,
+                    'IgnorePublicAcls': True,
+                    'BlockPublicPolicy': True,
+                    'RestrictPublicBuckets': True
                 }
             )
             access_msg = "Private access secured "
@@ -52,32 +49,30 @@ def create_s3_bucket(bucket_name, is_public=False):
         return True, f"Bucket created successfully. {access_msg}"
 
     except ClientError as e:
-        # תופס שגיאות כמו: שם באקט תפוס, אין הרשאות ועוד
+        # תופס שגיאות כמו: שם באקט תפוס
         if e.response['Error']['Code'] == 'BucketAlreadyExists':
             return False, "Error: Bucket name already taken globally. Try a different name."
         return False, f"AWS Error: {e}"
-        #לכל שאר השגיאות
     except Exception as e:
         return False, f"Unexpected Error: {e}"
 
 
 def list_created_buckets():
-  
-    # Lists only buckets that contain the specific project tag.
-   # פונקציה הסורקת
-    
+    """
+    Lists only buckets that contain the specific project tag.
+    """
     s3_client = boto3.client('s3')
     project_value = PROJECT_TAG['Value'] # שימוש במשתנה המיובא
 
     try:
-        # 1. קבלת רשימת כל הבאקטים בחשבון 
+        # 1. קבלת רשימת כל הבאקטים בחשבון
         response = s3_client.list_buckets()
         all_buckets = response.get('Buckets', [])
 
         my_buckets = []
         print(f"DEBUG: Scanning {len(all_buckets)} buckets for tag: {project_value}...")
 
-        # 2. מעבר על כל באקט ובדיקה האם הוא בעל הטאג שלנו'
+        # 2. מעבר על כל באקט ובדיקה האם הוא 'שלנו'
         for bucket in all_buckets:
             name = bucket['Name']
             try:
@@ -92,7 +87,7 @@ def list_created_buckets():
                         break # מצאנו
 
             except ClientError as e:
-                # תפסתי שגיאה כי אם לא הקוד יקרוס
+                # באג ב-AWS: אם אין טאגים בכלל, הפקודה נכשלת
                 if e.response['Error']['Code'] == 'NoSuchTagSet':
                     continue # אין טאגים, אז זה לא הבאקט שלנו
                 else:
@@ -105,17 +100,16 @@ def list_created_buckets():
         print(f"Error listing buckets: {e}")
         return []
 
-import os # צריך להוסיף את זה למעלה באימפורטים
 
 def upload_file_to_bucket(bucket_name, file_path):
-   
-   # Uploads a file to an S3 bucket (only if the bucket is ours).
-    
+    """
+    Uploads a file to an S3 bucket (only if the bucket is ours).
+    """
     s3_client = boto3.client('s3')
     project_value = PROJECT_TAG['Value']
 
     try:
-        # 1. בדיקת בעלות על הבאקט
+        # 1. בדיקת בעלות על הבאקט (האם יש לו את הטאג שלנו?)
         tags_response = s3_client.get_bucket_tagging(Bucket=bucket_name)
         tag_set = tags_response.get('TagSet', [])
         
@@ -129,7 +123,7 @@ def upload_file_to_bucket(bucket_name, file_path):
             return False, f" Permission Denied: Bucket '{bucket_name}' is not managed by this CLI."
 
         # 2. העלאת הקובץ
-        file_name = os.path.basename(file_path) # לוקח רק את שם הקובץ בלי הנתיב המלא
+        file_name = os.path.basename(file_path) # לוקח רק את שם הקובץ (בלי הנתיב המלא)
         s3_client.upload_file(file_path, bucket_name, file_name)
         
         return True, f"File '{file_name}' uploaded successfully to {bucket_name}!"
