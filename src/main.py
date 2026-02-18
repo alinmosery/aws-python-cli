@@ -76,16 +76,23 @@ def list_s3():
 
 # ================= EC2 COMMANDS (שרתים) =================
 @cli.command()
-@click.option('--name', required=True, help='Name tag for the server')
-def create_ec2(name):
-    """Launches a t2.micro instance"""
-    click.echo(f" Launching EC2 Instance: {name}...")
-    try:
-        success, message = create_instance(name)
-        color = 'green' if success else 'red'
-        click.echo(click.style(f" {message}", fg=color))
-    except Exception as e:
-        click.echo(click.style(f" Error: {e}", fg='red'))
+@click.option('--name', required=True, help='Name of the server')
+# הוספנו כאן את האפשרויות החדשות --type ו---os
+@click.option('--type', default='t3.micro', type=click.Choice(['t3.micro', 't2.small']), help='Instance Type (t3.micro or t2.small)')
+@click.option('--os', default='amazon_linux', type=click.Choice(['amazon_linux', 'ubuntu']), help='OS: amazon_linux or ubuntu')
+def create_ec2(name, type, os):
+    """Create a new EC2 instance (Amazon Linux or Ubuntu)."""
+    
+    # הדפסה למשתמש
+    click.echo(f"Deploying {os} server ({type})...")
+    
+    # שליחה לפונקציה המשודרגת
+    success, msg = create_instance(name, type, os)
+    
+    if success:
+        click.echo(click.style(msg, fg='green'))
+    else:
+        click.echo(click.style(msg, fg='red'))
 
 
 @cli.command()
