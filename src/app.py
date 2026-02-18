@@ -13,16 +13,16 @@ from src.resources.ec2_manager import create_instance, list_created_instances, s
 from src.resources.s3_manager import create_s3_bucket, list_created_buckets, upload_file_to_bucket
 from src.resources.route53_manager import create_hosted_zone, create_dns_record, list_hosted_zones
 
-# 3.  כותרת
+# 3. כותרת
 st.set_page_config(page_title="AWS Manager", layout="wide")
 st.title("AWS Resource Management System")
 st.markdown("Internal tool for managing EC2, S3, and Route53 resources.")
 
-# 4. תפריט צד 
+# 4. תפריט צד
 menu_options = ["EC2 Instances", "S3 Storage", "Route53 DNS"]
 selected_service = st.sidebar.radio("Select Service", menu_options)
 
-# ec2
+# ==================== EC2 SECTION ====================
 if selected_service == "EC2 Instances":
     st.header("EC2 Instance Management")
     
@@ -34,11 +34,24 @@ if selected_service == "EC2 Instances":
         st.subheader("Launch New Server")
         instance_name = st.text_input("Enter Server Name")
         
+        # --- תוספת: בחירת סוג שרת ומערכת הפעלה (לפי דרישות המרצה) ---
+        col_type, col_os = st.columns(2)
+        
+        with col_type:
+            # המשתמש יכול לבחור רק מה שמותר בתמונה ששלחת
+            inst_type = st.selectbox("Instance Type", ["t3.micro", "t2.small"])
+            
+        with col_os:
+            # המשתמש בוחר שם ידידותי, אנחנו נמיר אותו לקוד עבור ה-Manager
+            os_display = st.selectbox("Operating System", ["Amazon Linux 2023", "Ubuntu 24.04"])
+            os_map = {"Amazon Linux 2023": "amazon_linux", "Ubuntu 24.04": "ubuntu"}
+            selected_os = os_map[os_display]
+        
         if st.button("Create Instance"):
             if instance_name:
-                with st.spinner("Provisioning instance..."):
-                    # קריאה לפונקציה מה-Manager
-                    success, message = create_instance(instance_name)
+                with st.spinner(f"Provisioning {os_display} instance..."):
+                    # שליחת השם, הסוג ומערכת ההפעלה לפונקציה המעודכנת
+                    success, message = create_instance(instance_name, inst_type, selected_os)
                     if success:
                         st.success(message)
                     else:
@@ -46,7 +59,7 @@ if selected_service == "EC2 Instances":
             else:
                 st.warning("Server name is required.")
 
-    # טאב רשימה, כיבוי, הדלקה
+    # טאב ניהול (רשימה, כיבוי, הדלקה)
     with tab_manage:
         st.subheader("Current Inventory")
         if st.button("Refresh List"):
@@ -58,7 +71,6 @@ if selected_service == "EC2 Instances":
         
         st.markdown("---")
         
-        # חלוקה לשתי עמודות לכיבוי והדלקה
         col_stop, col_start = st.columns(2)
         
         with col_stop:
@@ -75,18 +87,16 @@ if selected_service == "EC2 Instances":
                 if success: st.success(msg)
                 else: st.error(msg)
 
-# S3 
+# ==================== S3 SECTION ====================
 elif selected_service == "S3 Storage":
     st.header("S3 Bucket Management")
     
     tab_create, tab_upload, tab_list = st.tabs(["Create Bucket", "Upload File", "List Buckets"])
     
-    # טאב יצירת באקט
     with tab_create:
         bucket_name = st.text_input("Bucket Name (Unique)")
         is_public = st.checkbox("Enable Public Access")
         
-        # אזהרת אבטחה אם נבחר ציבורי
         if is_public:
             st.warning("Security Warning: This bucket will be public.")
             confirm_public = st.checkbox("I acknowledge the risk")
@@ -95,9 +105,7 @@ elif selected_service == "S3 Storage":
             
         if st.button("Create Bucket"):
             if bucket_name:
-                #  ניקוי רווחים מיותרים מהשם כדי לא לקבל שגיאה 
                 clean_name = bucket_name.strip()
-                
                 if is_public and not confirm_public:
                     st.error("Please confirm public access.")
                 else:
@@ -107,30 +115,25 @@ elif selected_service == "S3 Storage":
             else:
                 st.warning("Bucket name is required.")
 
-    # טאב העלאת קבצים
     with tab_upload:
         target_bucket = st.text_input("Target Bucket Name")
         file_obj = st.file_uploader("Select File")
         
         if st.button("Upload File"):
             if target_bucket and file_obj:
-                # שמירה זמנית של הקובץ
                 with open(file_obj.name, "wb") as f:
                     f.write(file_obj.getbuffer())
                 
-                # קריאה לפונקציה
                 clean_bucket = target_bucket.strip()
                 success, msg = upload_file_to_bucket(clean_bucket, file_obj.name)
                 
                 if success: st.success(msg)
                 else: st.error(msg)
                 
-                # מחיקת הקובץ הזמני
                 os.remove(file_obj.name)
             else:
                 st.error("Bucket name and file are required.")
 
-    # טאב רשימה
     with tab_list:
         if st.button("List My Buckets"):
             buckets = list_created_buckets()
@@ -139,7 +142,7 @@ elif selected_service == "S3 Storage":
             else:
                 st.info("No buckets found.")
 
-# ROUTE53
+# ==================== ROUTE53 SECTION ====================
 elif selected_service == "Route53 DNS":
     st.header("DNS Management")
     
@@ -148,54 +151,4 @@ elif selected_service == "Route53 DNS":
     with tab_setup:
         st.subheader("Map Domain to Server")
         domain_name = st.text_input("Domain Name (e.g., example.com)")
-        server_tag_name = st.text_input("Server Name (Tag)")
-        
-        if st.button("Create DNS Record"):
-            if domain_name and server_tag_name:
-                with st.spinner("Processing..."):
-                    # 1. חיפוש ה-IP של השרת
-                    ec2 = boto3.client('ec2')
-                    try:
-                        response = ec2.describe_instances(
-                            Filters=[
-                                {'Name': 'tag:Name', 'Values': [server_tag_name]},
-                                {'Name': 'instance-state-name', 'Values': ['running']}
-                            ]
-                        )
-                        
-                        public_ip = None
-                        if response['Reservations']:
-                            for r in response['Reservations']:
-                                for i in r['Instances']:
-                                    public_ip = i.get('PublicIpAddress')
-                        
-                        if public_ip:
-                            st.info(f"Server IP found: {public_ip}")
-                            
-                            # 2. יצירת Zone
-                            zone_success, zone_id = create_hosted_zone(domain_name)
-                            
-                            if zone_success:
-                                # 3. יצירת רשומה
-                                rec_success, rec_msg = create_dns_record(zone_id, f"www.{domain_name}", public_ip)
-                                if rec_success:
-                                    st.success(f"DNS Configured: {rec_msg}")
-                                else:
-                                    st.error(rec_msg)
-                            else:
-                                st.error(f"Zone Error: {zone_id}")
-                        else:
-                            st.error("Server not found or has no Public IP.")
-                            
-                    except Exception as e:
-                        st.error(f"System Error: {e}")
-            else:
-                st.warning("All fields are required.")
-
-    with tab_list:
-        if st.button("List Hosted Zones"):
-            zones = list_hosted_zones()
-            if zones:
-                st.write(zones)
-            else:
-                st.info("No hosted zones found.")
+        server_tag_name = st.text_input("Server Name
