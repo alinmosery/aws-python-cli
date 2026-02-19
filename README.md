@@ -15,12 +15,12 @@ AWS CLI מוגדר במחשב עם מפתחות גישה (מריצים aws confi
 הוראות התקנה
 משכפלים את הפרויקט מהגיט ונכנסים לתיקייה:
 
-Bash
+
 git clone https://github.com/alinmosery/aws-python-cli.git
 cd aws-python-cli
 מתקינים את הספריות הנדרשות:
 
-Bash
+
 pip install -r requirements.txt
 יכולות הכלי והוראות שימוש
 1. ניהול שרתי EC2
@@ -34,24 +34,24 @@ Hard Cap: קיימת מגבלה בקוד המונעת יצירת יותר מ-2 �
 
 יצירת שרת חדש (ניתן לבחור שם, סוג ומערכת הפעלה):
 
-Bash
+
 python3 src/main.py create-ec2 --name my-server --type t3.micro --os ubuntu
 הצגת רשימת השרתים (מסנן אוטומטית רק שרתים של הכלי):
 
 
-Bash
+
 python3 src/main.py list-ec2
 
 כיבוי שרת (Stop):
 
 
-Bash
+
 python3 src/main.py stop-ec2 --id i-xxxxxxxxx
 
 הדלקת שרת (Start):
 
 
-Bash
+
 python3 src/main.py start-ec2 --id i-xxxxxxxxx
 
 2. אחסון קבצים (S3)
@@ -59,30 +59,30 @@ python3 src/main.py start-ec2 --id i-xxxxxxxxx
 
 יצירת באקט פרטי:
 
-Bash
+
 python3 src/main.py create-s3 --name my-private-bucket
 יצירת באקט ציבורי (ידרוש אישור ידני):
 
-Bash
+
 python3 src/main.py create-s3 --name my-public-bucket --public
 העלאת קובץ לבאקט:
 
-Bash
+
 python3 src/main.py upload-s3 --bucket my-bucket-name --file test.txt
 הצגת רשימת הבאקטים:
 
-Bash
+
 python3 src/main.py list-s3
 3. ניהול דומיינים (Route53)
 הכלי מבצע אוטומציה מלאה לחיבור בין שרת לדומיין. הוא מאתר לבד את כתובת ה-IP הפומבית של השרת המבוקש ומייצר עבורו רשומת DNS.
 
 חיבור דומיין לשרת (לפי שם השרת):
 
-Bash
+
 python3 src/main.py setup-dns --domain my-app.com --instance-name my-server
 הצגת רשימת האזורים (Hosted Zones):
 
-Bash
+
 python3 src/main.py list-route53
 בונוס: ממשק משתמש גרפי
 בנוסף לכלי ה-CLI, הפרויקט כולל גם ממשק אינטרנטי (Self-Service UI) שנבנה בעזרת Streamlit.
@@ -93,7 +93,7 @@ python3 src/main.py list-route53
 איך מפעילים את האתר?
 מתוך תיקיית הפרויקט, מריצים את הפקודה הבאה:
 
-Bash
+
 streamlit run src/app.py
 (האתר ייפתח אוטומטית בדפדפן בכתובת המקומית, לרוב על פורט 8501).
 
