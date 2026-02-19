@@ -36,6 +36,7 @@ Hard Cap: קיימת מגבלה בקוד המונעת יצירת יותר מ-2 �
 
 
 python3 src/main.py create-ec2 --name my-server --type t3.micro --os ubuntu
+
 הצגת רשימת השרתים (מסנן אוטומטית רק שרתים של הכלי):
 
 
@@ -61,18 +62,22 @@ python3 src/main.py start-ec2 --id i-xxxxxxxxx
 
 
 python3 src/main.py create-s3 --name my-private-bucket
+
 יצירת באקט ציבורי (ידרוש אישור ידני):
 
 
 python3 src/main.py create-s3 --name my-public-bucket --public
+
 העלאת קובץ לבאקט:
 
 
 python3 src/main.py upload-s3 --bucket my-bucket-name --file test.txt
+
 הצגת רשימת הבאקטים:
 
 
 python3 src/main.py list-s3
+
 3. ניהול דומיינים (Route53)
 הכלי מבצע אוטומציה מלאה לחיבור בין שרת לדומיין. הוא מאתר לבד את כתובת ה-IP הפומבית של השרת המבוקש ומייצר עבורו רשומת DNS.
 
@@ -80,10 +85,13 @@ python3 src/main.py list-s3
 
 
 python3 src/main.py setup-dns --domain my-app.com --instance-name my-server
+
 הצגת רשימת האזורים (Hosted Zones):
 
 
 python3 src/main.py list-route53
+
+
 בונוס: ממשק משתמש גרפי
 בנוסף לכלי ה-CLI, הפרויקט כולל גם ממשק אינטרנטי (Self-Service UI) שנבנה בעזרת Streamlit.
 הממשק מאפשר למפתחים בארגון לבצע את אותן פעולות (הקמת שרתים, אחסון וניהול DNS) דרך דשבורד ויזואלי וידידותי, מבלי לכתוב פקודות בטרמינל.
