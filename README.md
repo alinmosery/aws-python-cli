@@ -22,6 +22,10 @@ cd aws-python-cli
 
 
 pip install -r requirements.txt
+
+בשביל עזרה :
+python3 src/main.py --help
+
 יכולות הכלי והוראות שימוש
 1. ניהול שרתי EC2
 הכלי מאפשר פריסת שרתים תוך אכיפת על:
