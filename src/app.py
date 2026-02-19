@@ -151,4 +151,4 @@ elif selected_service == "Route53 DNS":
     with tab_setup:
         st.subheader("Map Domain to Server")
         domain_name = st.text_input("Domain Name (e.g., example.com)")
-        server_tag_name = st.text_input("Server Name
+        server_tag_name = st.text_input("Server Name (Tag)")
