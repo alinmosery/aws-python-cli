@@ -1,6 +1,6 @@
 # src/utils/helper.py
 
-# זה הטאג שיאפשר לנו לזהות איזה משאבים המערכת שלנו יצרה
+#יגיד לנו מהנוצר תחת הטאג שלנו
 PROJECT_TAG = {'Key': 'CreatedBy', 'Value': 'Alin-DevOps-CLI'}
 
 def get_standard_tags():
