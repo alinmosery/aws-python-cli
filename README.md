@@ -38,16 +38,22 @@ Bash
 python3 src/main.py create-ec2 --name my-server --type t3.micro --os ubuntu
 הצגת רשימת השרתים (מסנן אוטומטית רק שרתים של הכלי):
 
+
 Bash
 python3 src/main.py list-ec2
+
 כיבוי שרת (Stop):
+
 
 Bash
 python3 src/main.py stop-ec2 --id i-xxxxxxxxx
+
 הדלקת שרת (Start):
+
 
 Bash
 python3 src/main.py start-ec2 --id i-xxxxxxxxx
+
 2. אחסון קבצים (S3)
 אפשר ליצור באקטים פרטיים או ציבוריים. אם מנסים ליצור באקט ציבורי, הכלי מוציא אזהרה ומוודא שאתם בטוחים בפעולה, כדי למנוע דליפות מידע.
 
